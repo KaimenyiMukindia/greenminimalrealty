@@ -1,5 +1,5 @@
 ---
 deployment:
   tasks:
-  - /bin/mkdir -p /home/lrnzwljz/gmr.nyimuki.com/backend /home/lrnzwljz/gmr.nyimuki.com/frontend
+    - /bin/mkdir -p /home/lrnzwljz/gmr.nyimuki.com/backend /home/lrnzwljz/gmr.nyimuki.com/frontend
     - /bin/bash ./backend/deploy/cpanel-deploy.sh

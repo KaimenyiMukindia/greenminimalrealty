@@ -82,8 +82,9 @@ class ProductionEnvGeneratorTest extends TestCase
     {
         $deployment = Yaml::parseFile(base_path('../.cpanel.yml'));
         $tasks = $deployment['deployment']['tasks'] ?? [];
-        $this->assertCount(1, $tasks);
-        $this->assertSame('/bin/bash ./backend/deploy/cpanel-deploy.sh', $tasks[0]);
+        $this->assertCount(2, $tasks);
+        $this->assertStringContainsString('/bin/mkdir -p /home/lrnzwljz/gmr.nyimuki.com/backend', $tasks[0]);
+        $this->assertSame('/bin/bash ./backend/deploy/cpanel-deploy.sh', $tasks[1]);
         $script = file_get_contents(base_path('deploy/cpanel-deploy.sh'));
         $guide = file_get_contents(base_path('deploy/CPANEL-ENV.md'));
 
