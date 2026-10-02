@@ -29,7 +29,7 @@ On the first successful deployment, migrations run and the database is seeded on
 
 ## Deployment logs
 
-The cPanel task invokes `./backend/deploy/cpanel-deploy.sh` relative to the Git checkout root. It logs each named deployment stage, command start/completion, and failing line/status to:
+The cPanel manifest first creates the backend/frontend target directories and copies the Git-checked-out `backend/.` and `frontend/.` trees into them, then invokes `./backend/deploy/cpanel-deploy.sh --files-already-copied` relative to the Git checkout root. The wrapper removes Markdown/docs/tests/local SQLite from the live copies, generates runtime env files, installs dependencies, migrates/seeds as appropriate, builds Nuxt, and logs each named deployment stage, command start/completion, and failing line/status to:
 
 `/home/lrnzwljz/logs/gmr-deploy.log`
 

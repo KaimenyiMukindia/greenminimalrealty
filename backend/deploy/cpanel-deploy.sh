@@ -7,6 +7,7 @@ SETTINGS_FILE="$HOME/.gmr-production.env"
 LOG_DIR="$HOME/logs"
 LOG_FILE="$LOG_DIR/gmr-deploy.log"
 SEED_MARKER="$DEPLOYPATH/.initial-content-seeded"
+FILES_ALREADY_COPIED="${1:-}"
 
 mkdir -p "$LOG_DIR"
 touch "$LOG_FILE"
@@ -33,42 +34,56 @@ run() {
 
 log "START commit=$(git -C "$REPO_ROOT" rev-parse --short HEAD) repo=$REPO_ROOT deploy=$DEPLOYPATH"
 
-for command_name in rsync php composer npm node tee; do
+for command_name in php composer npm node tee; do
     command -v "$command_name" >/dev/null 2>&1 || { log "Missing required executable: $command_name"; exit 127; }
 done
+if [[ "$FILES_ALREADY_COPIED" != '--files-already-copied' ]]; then
+    command -v rsync >/dev/null 2>&1 || { log 'Missing required executable: rsync'; exit 127; }
+fi
 [[ -f "$SETTINGS_FILE" ]] || { log "Missing private production settings: $SETTINGS_FILE"; exit 1; }
 
 log "Runtime versions: $(php -r 'echo PHP_VERSION;') / $(node --version) / $(npm --version)"
 
 mkdir -p "$DEPLOYPATH/backend" "$DEPLOYPATH/frontend"
 
-log 'Sync backend runtime files (Markdown, docs, tests, secrets, local SQLite and caches excluded)'
-rsync -a \
-    --exclude='*.md' \
-    --exclude='.env*' \
-    --exclude='.claude/' \
-    --exclude='.mcp.json' \
-    --exclude='.git/' \
-    --exclude='vendor/' \
-    --exclude='node_modules/' \
-    --exclude='tests/' \
-    --exclude='phpunit.xml' \
-    --exclude='database/database.sqlite' \
-    --exclude='storage/framework/' \
-    --exclude='storage/logs/' \
-    "$REPO_ROOT/backend/" "$DEPLOYPATH/backend/"
-log 'Backend sync complete'
+if [[ "$FILES_ALREADY_COPIED" == '--files-already-copied' ]]; then
+    log 'cPanel copied backend/ and frontend/ into deployment root'
+else
+    log 'Sync backend runtime files (Markdown, docs, tests, secrets, local SQLite and caches excluded)'
+    rsync -a \
+        --exclude='*.md' \
+        --exclude='.env*' \
+        --exclude='.claude/' \
+        --exclude='.mcp.json' \
+        --exclude='.git/' \
+        --exclude='vendor/' \
+        --exclude='node_modules/' \
+        --exclude='tests/' \
+        --exclude='phpunit.xml' \
+        --exclude='database/database.sqlite' \
+        --exclude='storage/framework/' \
+        --exclude='storage/logs/' \
+        "$REPO_ROOT/backend/" "$DEPLOYPATH/backend/"
+    log 'Backend sync complete'
 
-log 'Sync frontend runtime files (Markdown, secrets, Git and build caches excluded)'
-rsync -a \
-    --exclude='*.md' \
-    --exclude='.env*' \
-    --exclude='.git/' \
-    --exclude='node_modules/' \
-    --exclude='.nuxt/' \
-    --exclude='.output/' \
-    "$REPO_ROOT/frontend/" "$DEPLOYPATH/frontend/"
-log 'Frontend sync complete'
+    log 'Sync frontend runtime files (Markdown, secrets, Git and build caches excluded)'
+    rsync -a \
+        --exclude='*.md' \
+        --exclude='.env*' \
+        --exclude='.git/' \
+        --exclude='node_modules/' \
+        --exclude='.nuxt/' \
+        --exclude='.output/' \
+        "$REPO_ROOT/frontend/" "$DEPLOYPATH/frontend/"
+    log 'Frontend sync complete'
+fi
+
+log 'Remove source documentation, developer tools, PHPUnit tests and local SQLite from live deployment'
+rm -rf "$DEPLOYPATH/backend/.claude" "$DEPLOYPATH/backend/tests" "$DEPLOYPATH/frontend/.git"
+rm -f "$DEPLOYPATH/backend/.mcp.json" "$DEPLOYPATH/backend/phpunit.xml" "$DEPLOYPATH/backend/database/database.sqlite"
+find "$DEPLOYPATH/backend" -path "$DEPLOYPATH/backend/vendor" -prune -o -type f -name '*.md' -delete
+find "$DEPLOYPATH/frontend" -path "$DEPLOYPATH/frontend/node_modules" -prune -o -type f -name '*.md' -delete
+log 'Source-only files removed from live deployment'
 
 log 'Generate Laravel and Nuxt environment files from private server settings'
 set -a

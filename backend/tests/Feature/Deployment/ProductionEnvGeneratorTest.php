@@ -82,12 +82,15 @@ class ProductionEnvGeneratorTest extends TestCase
     {
         $deployment = Yaml::parseFile(base_path('../.cpanel.yml'));
         $tasks = $deployment['deployment']['tasks'] ?? [];
-        $this->assertCount(2, $tasks);
+        $this->assertCount(4, $tasks);
         $this->assertStringContainsString('/bin/mkdir -p /home/lrnzwljz/gmr.nyimuki.com/backend', $tasks[0]);
-        $this->assertSame('/bin/bash ./backend/deploy/cpanel-deploy.sh', $tasks[1]);
+        $this->assertSame('/bin/cp -R -f backend/. /home/lrnzwljz/gmr.nyimuki.com/backend/', $tasks[1]);
+        $this->assertSame('/bin/cp -R -f frontend/. /home/lrnzwljz/gmr.nyimuki.com/frontend/', $tasks[2]);
+        $this->assertSame('/bin/bash ./backend/deploy/cpanel-deploy.sh --files-already-copied', $tasks[3]);
         $script = file_get_contents(base_path('deploy/cpanel-deploy.sh'));
         $guide = file_get_contents(base_path('deploy/CPANEL-ENV.md'));
 
+        $this->assertStringContainsString("FILES_ALREADY_COPIED=\"\${1:-}\"", $script);
         $this->assertStringContainsString('generate-production-env.php', $script);
         $this->assertStringContainsString("--exclude='*.md'", $script);
         $this->assertStringContainsString("--exclude='.env*'", $script);
@@ -97,6 +100,8 @@ class ProductionEnvGeneratorTest extends TestCase
         $this->assertStringContainsString('run npm --prefix', $script);
         $this->assertStringContainsString('gmr-deploy.log', $script);
         $this->assertStringContainsString('trap fail ERR', $script);
+        $this->assertStringContainsString("-type f -name '*.md' -delete", $script);
+        $this->assertStringContainsString('database/database.sqlite', $script);
         $this->assertStringNotContainsString('rm -f "$DEPLOYPATH/backend/.env"', $script);
         $this->assertStringContainsString('no SSH required', $guide);
         $this->assertStringContainsString('File Manager', $guide);

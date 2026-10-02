@@ -2,4 +2,6 @@
 deployment:
   tasks:
     - /bin/mkdir -p /home/lrnzwljz/gmr.nyimuki.com/backend /home/lrnzwljz/gmr.nyimuki.com/frontend
-    - /bin/bash ./backend/deploy/cpanel-deploy.sh
+    - /bin/cp -R -f backend/. /home/lrnzwljz/gmr.nyimuki.com/backend/
+    - /bin/cp -R -f frontend/. /home/lrnzwljz/gmr.nyimuki.com/frontend/
+    - /bin/bash ./backend/deploy/cpanel-deploy.sh --files-already-copied
