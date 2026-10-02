@@ -1,0 +1,2 @@
+<script setup lang="ts">defineProps<{ label: string; error?: string }>()</script>
+<template><label class="block space-y-2 text-sm font-medium text-stone-700"><span>{{ label }}</span><slot /><span v-if="error" class="block text-xs text-rose-600">{{ error }}</span></label></template>

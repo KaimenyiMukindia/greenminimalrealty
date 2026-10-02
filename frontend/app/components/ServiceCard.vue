@@ -1,0 +1,2 @@
+<script setup lang="ts">defineProps<{ service: any }>()</script>
+<template><article class="rounded-2xl border border-stone-200 bg-white p-7"><h3 class="text-2xl text-emerald-950">{{ service.title }}</h3><p class="mt-3 text-sm leading-6 text-stone-500">{{ service.short_description }}</p><ul class="mt-5 space-y-2 text-sm"><li v-for="item in service.items" :key="item.id">{{ item.text }}</li></ul></article></template>

@@ -1,0 +1,2 @@
+<script setup lang="ts">defineProps<{ modelValue: boolean }>(); defineEmits<{ 'update:modelValue': [value: boolean] }>()</script>
+<template><label class="inline-flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" :checked="modelValue" @change="$emit('update:modelValue', ($event.target as HTMLInputElement).checked)"> Published</label></template>

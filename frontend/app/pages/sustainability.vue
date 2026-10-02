@@ -1,0 +1,4 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'public' }); type C<T> = { data: T[] }; const { data: meta } = await useAsyncData('public-meta-sustainability', () => $fetch<any>('/api/public/meta?route=/sustainability')); const { data: pillars } = await useAsyncData('public-pillars-page', () => $fetch<C<any>>('/api/public/sustainability')); useSeoMeta({ title: () => meta.value?.data.title, description: () => meta.value?.data.description })
+</script>
+<template><div><PublicHero v-if="meta?.data" :meta="meta.data" /><PublicContentBlocks :blocks="meta?.data?.blocks" /><section v-if="pillars?.data?.length" class="mx-auto grid max-w-7xl gap-8 px-5 py-20 sm:grid-cols-2 sm:px-8 lg:grid-cols-3"><PillarCard v-for="pillar in pillars.data" :key="pillar.id" :pillar="pillar" /></section></div></template>

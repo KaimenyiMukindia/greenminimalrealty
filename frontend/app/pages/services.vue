@@ -1,0 +1,4 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'public' }); type C<T> = { data: T[] }; const { data: meta } = await useAsyncData('public-meta-services', () => $fetch<any>('/api/public/meta?route=/services')); const { data: services } = await useAsyncData('public-services-page', () => $fetch<C<any>>('/api/public/services')); useSeoMeta({ title: () => meta.value?.data.title, description: () => meta.value?.data.description })
+</script>
+<template><div><PublicHero v-if="meta?.data" :meta="meta.data" /><PublicContentBlocks :blocks="meta?.data?.blocks" /><section v-if="services?.data?.length" class="mx-auto max-w-7xl space-y-6 px-5 py-20 sm:px-8"><ServiceCard v-for="service in services.data" :key="service.id" :service="service" /></section></div></template>

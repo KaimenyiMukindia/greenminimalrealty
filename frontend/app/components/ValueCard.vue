@@ -1,0 +1,2 @@
+<script setup lang="ts">defineProps<{ value: any }>()</script>
+<template><article class="border-t border-stone-300 pt-4"><h3 class="font-medium text-emerald-950">{{ value.title }}</h3><p class="mt-2 text-sm leading-6 text-stone-500">{{ value.description }}</p></article></template>

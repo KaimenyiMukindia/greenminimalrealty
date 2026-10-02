@@ -1,0 +1,2 @@
+<script setup lang="ts">defineProps<{ pillar: any }>()</script>
+<template><article class="border-t border-stone-300 pt-5"><h3 class="text-lg font-medium text-emerald-950">{{ pillar.title }}</h3><p class="mt-2 text-sm leading-6 text-stone-500">{{ pillar.description }}</p></article></template>

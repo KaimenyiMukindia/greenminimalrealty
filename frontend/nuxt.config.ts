@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     laravelApiUrl: process.env.LARAVEL_API_URL || 'http://127.0.0.1:8000',
-    sessionCookieSecure: true,
+    sessionCookieSecure: process.env.NUXT_SESSION_COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
     public: {
       sessionCookieName: process.env.NUXT_SESSION_COOKIE_NAME || 'gmr_session',
     },

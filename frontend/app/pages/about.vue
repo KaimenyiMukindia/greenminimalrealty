@@ -1,0 +1,4 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'public' }); type C<T> = { data: T[] }; const { data: meta } = await useAsyncData('public-meta-about', () => $fetch<any>('/api/public/meta?route=/about')); const { data: values } = await useAsyncData('public-values-about', () => $fetch<C<any>>('/api/public/values')); useSeoMeta({ title: () => meta.value?.data.title, description: () => meta.value?.data.description })
+</script>
+<template><div><PublicHero v-if="meta?.data" :meta="meta.data" /><PublicContentBlocks :blocks="meta?.data?.blocks" /><section v-if="values?.data?.length" class="mx-auto max-w-7xl px-5 py-20 sm:px-8"><div class="grid gap-8 md:grid-cols-2 lg:grid-cols-4"><ValueCard v-for="value in values.data" :key="value.id" :value="value" /></div></section></div></template>

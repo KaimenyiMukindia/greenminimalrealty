@@ -1,0 +1,2 @@
+<script setup lang="ts">defineProps<{ eyebrow: string; title: string }>()</script>
+<template><div><p class="text-sm uppercase tracking-[.2em] text-emerald-700">{{ eyebrow }}</p><h2 class="mt-3 text-4xl font-semibold tracking-tight text-emerald-950 sm:text-5xl">{{ title }}</h2></div></template>

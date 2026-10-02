@@ -1,0 +1,17 @@
+﻿deployment:
+  tasks:
+    - export DEPLOYPATH=/home/lrnzwljz/gmr.nyimuki.com/
+    - /bin/mkdir -p "$DEPLOYPATH"
+    - /bin/cp -R backend "$DEPLOYPATH"
+    - /bin/cp -R frontend "$DEPLOYPATH"
+
+    # Remove development-only/security-sensitive files from live server
+    - /bin/rm -rf "$DEPLOYPATH/backend/.claude"
+    - /bin/rm -f "$DEPLOYPATH/backend/.mcp.json"
+
+    # Never expose local/development environment files
+    - /bin/rm -f "$DEPLOYPATH/backend/.env"
+    - /bin/rm -f "$DEPLOYPATH/frontend/.env"
+
+    # Do not deploy Nuxt development/build cache
+    - /bin/rm -rf "$DEPLOYPATH/frontend/.output"
