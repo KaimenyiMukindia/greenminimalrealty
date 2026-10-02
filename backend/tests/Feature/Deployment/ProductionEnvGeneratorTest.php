@@ -83,8 +83,9 @@ class ProductionEnvGeneratorTest extends TestCase
         $deployment = Yaml::parseFile(base_path('../.cpanel.yml'));
         $tasks = $deployment['deployment']['tasks'] ?? [];
         $this->assertCount(1, $tasks);
-        $this->assertStringContainsString('cpanel-deploy.sh', $tasks[0]);
+        $this->assertSame('/bin/bash ./backend/deploy/cpanel-deploy.sh', $tasks[0]);
         $script = file_get_contents(base_path('deploy/cpanel-deploy.sh'));
+        $guide = file_get_contents(base_path('deploy/CPANEL-ENV.md'));
 
         $this->assertStringContainsString('generate-production-env.php', $script);
         $this->assertStringContainsString("--exclude='*.md'", $script);
@@ -96,6 +97,8 @@ class ProductionEnvGeneratorTest extends TestCase
         $this->assertStringContainsString('gmr-deploy.log', $script);
         $this->assertStringContainsString('trap fail ERR', $script);
         $this->assertStringNotContainsString('rm -f "$DEPLOYPATH/backend/.env"', $script);
+        $this->assertStringContainsString('no SSH required', $guide);
+        $this->assertStringContainsString('File Manager', $guide);
     }
 
     /** @return array<string, string> */

@@ -6,6 +6,8 @@ Before the first deployment, create this **server-only** shell environment file 
 
 `/home/lrnzwljz/.gmr-production.env`
 
+This can be done in cPanel **File Manager** (no SSH required): open the account home directory `/home/lrnzwljz` (one directory above `public_html`), enable **Show Hidden Files**, create `.gmr-production.env`, paste the shell assignments below, save, then use **Change Permissions** to set `0600`. This file must not be placed under `public_html`, the Git repository, or the deploy directory.
+
 Set restrictive permissions (`chmod 600`) and populate these values using the cPanel MySQL database/user and your production domains:
 
 - `APP_URL` — HTTPS Laravel API origin, e.g. `https://api.example.com`
@@ -27,8 +29,16 @@ On the first successful deployment, migrations run and the database is seeded on
 
 ## Deployment logs
 
-The cPanel task invokes `backend/deploy/cpanel-deploy.sh`. It logs each named deployment stage, command start/completion, and failing line/status to:
+The cPanel task invokes `./backend/deploy/cpanel-deploy.sh` relative to the Git checkout root. It logs each named deployment stage, command start/completion, and failing line/status to:
 
 `/home/lrnzwljz/logs/gmr-deploy.log`
 
-The log is outside the web root and is created with owner-only permissions. If cPanel reports only "Deployment task completed" or a task failure, inspect this file over SSH or through the cPanel File Manager. The script does not log the private environment-file contents.
+The log is outside the web root and is created with owner-only permissions. No SSH is needed: open this file in cPanel File Manager to inspect failures. If cPanel reports only "Deployment task completed" or a task failure, check the log for the failed command/stage. If the log file was not created, cPanel failed while reading/parsing `.cpanel.yml` or before it could start the wrapper. The script does not log the private environment-file contents.
+
+## Deploy without SSH
+
+1. In cPanel **Git Version Control**, select this repository and branch `main`, click **Update from Remote**, then **Deploy HEAD Commit**.
+2. The task syncs runtime code (not Markdown/docs/tests/secrets), generates Laravel and Nuxt `.env` files from `/home/lrnzwljz/.gmr-production.env`, installs dependencies, runs database migrations, seeds initial content once, and builds Nuxt.
+3. In cPanel **Setup Node.js App**, set the application root to `gmr.nyimuki.com/frontend`, startup file/command to `npm start`, and ensure the app's Node version is at least 20.6. Start/restart the Node app using the cPanel UI after deployment if cPanel does not auto-restart it.
+4. Set Laravel's domain document root to `gmr.nyimuki.com/backend/public` using cPanel's domain/document-root settings. Do not make the project parent directory web-accessible.
+5. Read `/home/lrnzwljz/logs/gmr-deploy.log` in File Manager for exact task output. A cPanel task marked completed is not proof that the live Node app restarted or that DNS/document-root routing is correct.

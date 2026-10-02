@@ -1,12 +1,5 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/lrnzwljz/gmr.nyimuki.com
-    # Create the target root directory
-    - /bin/mkdir -p $DEPLOYPATH
-    # Copy directory contents recursively (trailing slash tells cp to copy contents into target)
-    - /bin/cp -R -f backend/. $DEPLOYPATH/backend/
-    - /bin/cp -R -f frontend/. $DEPLOYPATH/frontend/
-    # Remove dev files
-    - /bin/rm -rf $DEPLOYPATH/backend/.claude
-    - /bin/rm -f $DEPLOYPATH/backend/.mcp.json
+  - /bin/mkdir -p /home/lrnzwljz/gmr.nyimuki.com/backend /home/lrnzwljz/gmr.nyimuki.com/frontend
+    - /bin/bash ./backend/deploy/cpanel-deploy.sh
