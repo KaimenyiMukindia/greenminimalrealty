@@ -1,27 +1,4 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/lrnzwljz/gmr.nyimuki.com/
-    - /bin/mkdir -p "$DEPLOYPATH/backend" "$DEPLOYPATH/frontend"
-
-    # Sync executable application files only. Markdown and developer tooling stay in GitHub, not the live tree.
-    # Excludes preserve server-managed secrets, installed dependencies, user uploads, and runtime state.
-    - /usr/bin/rsync -a --exclude='*.md' --exclude='.env*' --exclude='.claude/' --exclude='.mcp.json' --exclude='.git/' --exclude='vendor/' --exclude='node_modules/' --exclude='tests/' --exclude='phpunit.xml' --exclude='database/database.sqlite' --exclude='storage/framework/' --exclude='storage/logs/' backend/ "$DEPLOYPATH/backend/"
-    - /usr/bin/rsync -a --exclude='*.md' --exclude='.env*' --exclude='.git/' --exclude='node_modules/' --exclude='.nuxt/' --exclude='.output/' frontend/ "$DEPLOYPATH/frontend/"
-
-    # Generate Laravel and Nuxt runtime env files from a private file outside the web root; never copy or commit secrets.
-    - test -f "$HOME/.gmr-production.env" || { echo 'Missing $HOME/.gmr-production.env; create it from backend/deploy/CPANEL-ENV.md.' >&2; exit 1; }
-    - cd "$DEPLOYPATH/backend" && set -a && . "$HOME/.gmr-production.env" && set +a && php deploy/generate-production-env.php "$DEPLOYPATH/backend/.env" "$DEPLOYPATH/frontend/.env"
-
-    # Install runtime/build dependencies, migrate every deployment, and prepare Laravel public storage.
-    - cd "$DEPLOYPATH/backend" && composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-    - cd "$DEPLOYPATH/backend" && php artisan optimize:clear
-    - cd "$DEPLOYPATH/backend" && php artisan migrate --force
-    - cd "$DEPLOYPATH/backend" && if [ ! -e public/storage ]; then php artisan storage:link; fi
-
-    # First deployment seeds initial content and optional guarded admin only; later deploys preserve CMS edits.
-    - if [ ! -f "$DEPLOYPATH/.initial-content-seeded" ]; then cd "$DEPLOYPATH/backend" && php artisan db:seed --force && /usr/bin/touch "$DEPLOYPATH/.initial-content-seeded"; fi
-    - cd "$DEPLOYPATH/backend" && php artisan config:cache
-
-    # Build the Nuxt production server bundle after syncing current sources.
-    - cd "$DEPLOYPATH/frontend" && npm ci --include=dev && npm run build
+    - /bin/bash /home/lrnzwljz/repositories/greenminimalrealty/backend/deploy/cpanel-deploy.sh

@@ -82,15 +82,19 @@ class ProductionEnvGeneratorTest extends TestCase
     {
         $deployment = Yaml::parseFile(base_path('../.cpanel.yml'));
         $tasks = $deployment['deployment']['tasks'] ?? [];
-        $script = implode("\n", $tasks);
+        $this->assertCount(1, $tasks);
+        $this->assertStringContainsString('cpanel-deploy.sh', $tasks[0]);
+        $script = file_get_contents(base_path('deploy/cpanel-deploy.sh'));
 
         $this->assertStringContainsString('generate-production-env.php', $script);
         $this->assertStringContainsString("--exclude='*.md'", $script);
         $this->assertStringContainsString("--exclude='.env*'", $script);
-        $this->assertStringContainsString('php artisan migrate --force', $script);
+        $this->assertStringContainsString('migrate --force', $script);
         $this->assertStringContainsString('.initial-content-seeded', $script);
-        $this->assertStringContainsString('php artisan db:seed --force', $script);
-        $this->assertStringContainsString('npm run build', $script);
+        $this->assertStringContainsString('db:seed --force', $script);
+        $this->assertStringContainsString('run npm --prefix', $script);
+        $this->assertStringContainsString('gmr-deploy.log', $script);
+        $this->assertStringContainsString('trap fail ERR', $script);
         $this->assertStringNotContainsString('rm -f "$DEPLOYPATH/backend/.env"', $script);
     }
 

@@ -24,3 +24,11 @@ The deploy script sources this file, writes both environment files atomically wi
 Set the Nuxt Node application root to `frontend` and startup command to `npm start`. The deployment generates its `.env`; cPanel may also define/override the same runtime variables. Map Laravel's document root to `backend/public`; do not expose the project parent directory as a document root.
 
 On the first successful deployment, migrations run and the database is seeded once. An administrator is seeded only if the optional admin values are supplied. Later deployments run outstanding migrations but do not reseed content or overwrite dashboard edits.
+
+## Deployment logs
+
+The cPanel task invokes `backend/deploy/cpanel-deploy.sh`. It logs each named deployment stage, command start/completion, and failing line/status to:
+
+`/home/lrnzwljz/logs/gmr-deploy.log`
+
+The log is outside the web root and is created with owner-only permissions. If cPanel reports only "Deployment task completed" or a task failure, inspect this file over SSH or through the cPanel File Manager. The script does not log the private environment-file contents.
