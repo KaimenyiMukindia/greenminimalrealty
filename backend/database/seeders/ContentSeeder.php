@@ -127,6 +127,13 @@ class ContentSeeder extends Seeder
     private function copyImages(): array
     {
         $source = base_path('../GreenMinimal');
+        if (! File::isDirectory($source)) {
+            $source = Storage::disk('public')->path('uploads');
+        }
+        if (! File::isDirectory($source)) {
+            return [];
+        }
+
         $urls = [];
         foreach (File::allFiles($source) as $file) {
             if (! in_array(strtolower($file->getExtension()), ['jpg', 'jpeg', 'png', 'webp', 'ttf', 'woff', 'woff2'], true)) continue;

@@ -289,3 +289,20 @@ NuxtSession token in httpOnly + Secure + SameSite=Lax cookie set by Nuxt server 
 - Browser: typed `pool`; suggestions `Rooftop pool` and `Swimming pool` appeared from seeded DB records. ArrowDown + Enter selected a suggestion and displayed a removable chip; the resulting single-tag filter returned the matching Georgia Luxury Apartment. Typed `Watamu` alongside a tag and got two matching villas; removing the tag left the `Watamu` query intact. A nonmatching query showed the empty state and Clear filters action. Back navigation restored the previous query chip. Reload with `tags[]=Swimming pool` restored the tag chip and four matching records.
 - Browser network/console check on filtered properties: no requests to Laravel origin, no console errors, no typeahead lifecycle/unhandled warnings. Public property card layout remained the existing card markup.
 - Suggestions are confirmed database-driven through API feature tests and the browser values matching seeded tags/locations/titles. 55-property pagination and 100-item cap are verified through backend tests.
+
+# cPanel Git Deployment Troubleshooting (2026-10-02)
+
+- Confirmed the checked-in `.cpanel.yml` began with UTF-8 BOM bytes `EF-BB-BF`, before `deployment:`. Recreated it as UTF-8 without BOM and added the YAML document-start marker.
+- Validation: first bytes are now `2D-2D-2D` (`---`), BOM check is false, and Symfony YAML parsed the deployment task list successfully. The deployment workflow was subsequently revised in “GitHub → cPanel Initial Deployment” below.
+- The deployment directory remains `/home/lrnzwljz/gmr.nyimuki.com/`. cPanel still needs Laravel document-root and Nuxt Node app/subdomain configuration; Git deployment tasks cannot configure those hosting-level settings.
+- Superseded safety issue: the original cleanup commands deleted live `.env` and `.output`; these were removed. Current rsync excludes source env files while preserving server-managed env and uploads, then installs/builds application dependencies.
+
+# GitHub → cPanel Initial Deployment (2026-10-02)
+
+- Deployment contract: commit all source and Markdown documentation to GitHub `main`; `.cpanel.yml` syncs only runtime code and explicitly excludes `*.md`, `.claude/`, `.mcp.json`, `.env*`, Git metadata, dependencies, and local build caches from the live directories.
+- Deployment sync preserves server-managed `.env` files and Laravel storage/uploads (no destructive rsync `--delete`). It installs Composer dependencies, runs `php artisan migrate --force` on every pull, links public storage when missing, installs frontend dependencies, and builds Nuxt.
+- Initial content seeding is guarded by `$DEPLOYPATH/.initial-content-seeded`: `db:seed --force` runs only once after a successful seed. This avoids resetting CMS edits on later deployments. Initial admin creation remains guarded by `SEED_ADMIN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME` in the production environment.
+- The local `GreenMinimal` source export is absent and intentionally is not required for deployment. `ContentSeeder` now falls back to the tracked `backend/storage/app/public/uploads` assets. `ContentSeederDeploymentTest` verifies first-seed records/media with that fallback.
+- Nuxt package now includes `npm start` -> `node .output/server/index.mjs` for the cPanel Node application manager.
+- Required cPanel setup outside Git deployment tasks: provide persistent production environment variables/files (never commit them); set PHP CLI to 8.2+; configure Laravel domain/subdomain document root to `backend/public`; create/configure the Node app with frontend root and startup command `npm start`, with `LARAVEL_API_URL` pointing at the private/server-side Laravel API base; map public frontend and API hostnames/reverse proxy appropriately. Do not expose the project parent directory as a browsable document root.
+- Remote GitHub push and cPanel deployment confirmation are tracked after the commit/push attempt below; hosting-level roots, Node environment, and production env values must be verified in cPanel.

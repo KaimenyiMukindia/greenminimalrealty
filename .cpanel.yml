@@ -1,17 +1,24 @@
-﻿deployment:
+---
+deployment:
   tasks:
     - export DEPLOYPATH=/home/lrnzwljz/gmr.nyimuki.com/
-    - /bin/mkdir -p "$DEPLOYPATH"
-    - /bin/cp -R backend "$DEPLOYPATH"
-    - /bin/cp -R frontend "$DEPLOYPATH"
+    - /bin/mkdir -p "$DEPLOYPATH/backend" "$DEPLOYPATH/frontend"
 
-    # Remove development-only/security-sensitive files from live server
-    - /bin/rm -rf "$DEPLOYPATH/backend/.claude"
-    - /bin/rm -f "$DEPLOYPATH/backend/.mcp.json"
+    # Sync executable application files only. Markdown and developer tooling stay in GitHub, not the live tree.
+    # Excludes preserve server-managed secrets, installed dependencies, user uploads, and runtime state.
+    - /usr/bin/rsync -a --exclude='*.md' --exclude='.env*' --exclude='.claude/' --exclude='.mcp.json' --exclude='.git/' --exclude='vendor/' --exclude='node_modules/' --exclude='storage/framework/' --exclude='storage/logs/' backend/ "$DEPLOYPATH/backend/"
+    - /usr/bin/rsync -a --exclude='*.md' --exclude='.env*' --exclude='.git/' --exclude='node_modules/' --exclude='.nuxt/' --exclude='.output/' frontend/ "$DEPLOYPATH/frontend/"
 
-    # Never expose local/development environment files
-    - /bin/rm -f "$DEPLOYPATH/backend/.env"
-    - /bin/rm -f "$DEPLOYPATH/frontend/.env"
+    # Production secrets/configuration must be created in cPanel before the first deployment.
+    - test -f "$DEPLOYPATH/backend/.env" || { echo 'Missing server-managed backend/.env; configure it before deploying.' >&2; exit 1; }
 
-    # Do not deploy Nuxt development/build cache
-    - /bin/rm -rf "$DEPLOYPATH/frontend/.output"
+    # Install runtime/build dependencies, migrate every deployment, and prepare Laravel public storage.
+    - cd "$DEPLOYPATH/backend" && composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+    - cd "$DEPLOYPATH/backend" && php artisan migrate --force
+    - cd "$DEPLOYPATH/backend" && if [ ! -e public/storage ]; then php artisan storage:link; fi
+
+    # First deployment seeds initial content and optional guarded admin only; later deploys preserve CMS edits.
+    - if [ ! -f "$DEPLOYPATH/.initial-content-seeded" ]; then cd "$DEPLOYPATH/backend" && php artisan db:seed --force && /usr/bin/touch "$DEPLOYPATH/.initial-content-seeded"; fi
+
+    # Build the Nuxt production server bundle after syncing current sources.
+    - cd "$DEPLOYPATH/frontend" && npm ci --include=dev && npm run build
