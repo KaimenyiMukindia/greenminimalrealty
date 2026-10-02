@@ -1,4 +1,12 @@
 ---
 deployment:
   tasks:
-    - /bin/bash /home/lrnzwljz/repositories/greenminimalrealty/backend/deploy/cpanel-deploy.sh
+    - export DEPLOYPATH=/home/lrnzwljz/gmr.nyimuki.com
+    # Create the target root directory
+    - /bin/mkdir -p $DEPLOYPATH
+    # Copy directory contents recursively (trailing slash tells cp to copy contents into target)
+    - /bin/cp -R -f backend/. $DEPLOYPATH/backend/
+    - /bin/cp -R -f frontend/. $DEPLOYPATH/frontend/
+    # Remove dev files
+    - /bin/rm -rf $DEPLOYPATH/backend/.claude
+    - /bin/rm -f $DEPLOYPATH/backend/.mcp.json
