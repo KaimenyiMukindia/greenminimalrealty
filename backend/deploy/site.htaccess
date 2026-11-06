@@ -1,0 +1,16 @@
+RewriteEngine On
+
+# Block direct source access, without blocking internal Laravel rewrites.
+RewriteCond %{THE_REQUEST} "\s/+(backend|frontend)(/|[?\s])" [NC]
+RewriteRule ^ - [F,L]
+
+RewriteRule ^storage/(.*)$ backend/public/storage/$1 [L]
+RewriteRule ^api/(auth|public|admin)/.*$ http://127.0.0.1:3000%{REQUEST_URI} [P,L]
+RewriteRule ^api/(.*)$ backend/public/index.php [L]
+RewriteRule ^auth/google(/callback)?$ backend/public/index.php [L]
+
+RewriteCond %{REQUEST_URI} !^/backend
+RewriteCond %{REQUEST_URI} !^/frontend
+RewriteCond %{REQUEST_URI} !^/storage
+RewriteCond %{REQUEST_URI} !^/api
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]

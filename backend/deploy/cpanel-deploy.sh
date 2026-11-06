@@ -125,6 +125,10 @@ else
 fi
 
 run php "$DEPLOYPATH/backend/artisan" config:cache
+if [[ -f "$DEPLOYPATH/.htaccess" ]]; then
+    run cp "$DEPLOYPATH/.htaccess" "$DEPLOYPATH/.htaccess-backup-$(date -u '+%Y%m%d%H%M%S')-$$"
+fi
+run cp "$REPO_ROOT/backend/deploy/site.htaccess" "$DEPLOYPATH/.htaccess"
 log 'Publish the new Nuxt build; retain the previous output for rollback'
 OUTPUT_STAGE="$(mktemp -d "$DEPLOYPATH/frontend/.output-release.XXXXXXXX")"
 run tar -C "$OUTPUT_STAGE" -xzf "$RELEASE_DIR/nuxt.tar.gz"

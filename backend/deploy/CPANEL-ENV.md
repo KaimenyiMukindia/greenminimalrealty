@@ -53,6 +53,8 @@ The script uses `tar` (not unavailable `rsync`) to copy runtime source while exc
 
 Restart the Nuxt Node process after a successful deployment so it loads the new output and environment. The existing host startup script/cron is outside Git; do not overwrite it. Output backups consume disk space: remove only specifically identified old backup directories once a release is verified.
 
+This host currently serves Laravel and Nuxt on the same subdomain through Apache. The tracked `site.htaccess` preserves its storage/API/Nuxt proxy rules, adds Laravel-owned `/auth/google` and `/auth/google/callback`, and rejects direct access to source directories. Deployment backs up the previous root `.htaccess` before installing these rules. If moving to separate frontend/API domains, review this host-specific template rather than copying its same-domain proxy configuration.
+
 Deployment output is redirected directly into the private log, avoiding process-substitution requirements in the cPanel runner. Each deployment stage, command start/completion, and failing line/status is recorded in:
 
 `/home/lrnzwljz/logs/gmr-deploy.log`

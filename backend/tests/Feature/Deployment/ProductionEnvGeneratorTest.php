@@ -108,6 +108,7 @@ class ProductionEnvGeneratorTest extends TestCase
         $this->assertStringContainsString('Nuxt build revision does not match HEAD', $script);
         $this->assertStringContainsString('run ln -s', $script);
         $this->assertStringContainsString('queue:restart', $script);
+        $this->assertStringContainsString('site.htaccess', $script);
         $this->assertLessThan(strpos($script, "log 'Sync backend"), strpos($script, 'sha256sum -c'));
         $this->assertLessThan(strpos($script, 'migrate --force'), strpos($script, 'config:clear'));
         $this->assertLessThan(strpos($script, 'optimize:clear'), strpos($script, 'migrate --force'));
@@ -142,6 +143,16 @@ class ProductionEnvGeneratorTest extends TestCase
         $this->assertStringContainsString('sha256sum nuxt.tar.gz', $publish);
         $this->assertStringContainsString('tag="nuxt-$GITHUB_SHA"', $publish);
         $this->assertStringContainsString('gh release upload', $publish);
+    }
+
+    public function test_shared_domain_routes_google_to_laravel_before_the_nuxt_fallback(): void
+    {
+        $rules = file_get_contents(base_path('deploy/site.htaccess'));
+        $this->assertStringContainsString('^auth/google(/callback)?$ backend/public/index.php', $rules);
+        $this->assertStringContainsString('^api/(auth|public|admin)/.*$', $rules);
+        $this->assertStringContainsString('RewriteCond %{THE_REQUEST}', $rules);
+        $this->assertLessThan(strpos($rules, '^api/(.*)$'), strpos($rules, '^api/(auth|public|admin)'));
+        $this->assertLessThan(strpos($rules, '^(.*)$ http://'), strpos($rules, '^auth/google'));
     }
 
     public function test_it_preserves_configured_resend_and_google_only_in_the_backend_env(): void
