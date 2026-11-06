@@ -45,7 +45,15 @@ Ordinary registration creates the existing `user` role, not a CMS administrator.
 
 ## Deployment logs
 
-The cPanel manifest first creates the backend/frontend target directories and copies the Git-checked-out `backend/.` and `frontend/.` trees into them, then invokes `./backend/deploy/cpanel-deploy.sh --files-already-copied` relative to the Git checkout root. The wrapper removes Markdown/docs/tests/local SQLite from the live copies, generates runtime env files, installs dependencies, migrates/seeds as appropriate, builds Nuxt, and logs each named deployment stage, command start/completion, and failing line/status to:
+GitHub Actions builds Nuxt on Linux/Node 22 after pushes to `main` or `auth`, with the `node-server` preset. It publishes `nuxt.tar.gz` and its SHA-256 checksum in the prerelease tagged `nuxt-<full-commit-SHA>`. The archive contains a revision marker and the complete `.output` runtime, not environment files. Enable Actions and its workflow write permission in the repository. No server SSH key or production secrets are needed by the workflow.
+
+Wait for **Build Nuxt deployment** to succeed before deploying that commit. The cPanel manifest invokes `./backend/deploy/cpanel-deploy.sh` relative to the Git checkout root. It downloads the public release for exactly `HEAD`, verifies the checksum, revision marker, and server entry point **before changing live files**. A missing, corrupt, or mismatched release fails explicitly; old manually uploaded output is never accepted. This relies on the repository/releases remaining public; private releases would require a separately designed authenticated download.
+
+The script uses `tar` (not unavailable `rsync`) to copy runtime source while excluding secrets, dependencies, caches, tests, and local SQLite. It generates runtime env files, installs Composer dependencies, clears cached config, migrates before clearing database-backed caches, seeds only when the initial seed marker is absent, and caches config. Storage links use shell `ln -s` because this host disables PHP's `symlink()` function. The completed Nuxt build replaces live `.output`; the previous output is retained as `.output-backup-<timestamp>-<pid>` for manual rollback. Long-lived queue workers receive a restart signal.
+
+Restart the Nuxt Node process after a successful deployment so it loads the new output and environment. The existing host startup script/cron is outside Git; do not overwrite it. Output backups consume disk space: remove only specifically identified old backup directories once a release is verified.
+
+Deployment output is redirected directly into the private log, avoiding process-substitution requirements in the cPanel runner. Each deployment stage, command start/completion, and failing line/status is recorded in:
 
 `/home/lrnzwljz/logs/gmr-deploy.log`
 
@@ -54,7 +62,7 @@ The log is outside the web root and is created with owner-only permissions. No S
 ## Deploy without SSH
 
 1. In cPanel **Git Version Control**, select this repository and branch `main`, click **Update from Remote**, then **Deploy HEAD Commit**.
-2. The task syncs runtime code (not Markdown/docs/tests/secrets), generates Laravel and Nuxt `.env` files from `/home/lrnzwljz/.gmr-production.env`, installs dependencies, runs database migrations, seeds initial content once, and builds Nuxt.
+2. The task verifies the commit-matched Nuxt release, syncs runtime code (not Markdown/docs/tests/secrets), generates Laravel and Nuxt `.env` files from `/home/lrnzwljz/.gmr-production.env`, installs backend dependencies, runs database migrations, seeds initial content once, and publishes Nuxt output.
 3. In cPanel **Setup Node.js App**, set the application root to `gmr.nyimuki.com/frontend`, startup file/command to `npm start`, and ensure the app's Node version is at least 20.6. Start/restart the Node app using the cPanel UI after deployment if cPanel does not auto-restart it.
 4. Set Laravel's domain document root to `gmr.nyimuki.com/backend/public` using cPanel's domain/document-root settings. Do not make the project parent directory web-accessible.
 5. Read `/home/lrnzwljz/logs/gmr-deploy.log` in File Manager for exact task output. A cPanel task marked completed is not proof that the live Node app restarted or that DNS/document-root routing is correct.

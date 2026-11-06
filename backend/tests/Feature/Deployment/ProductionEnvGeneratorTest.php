@@ -96,29 +96,52 @@ class ProductionEnvGeneratorTest extends TestCase
     {
         $deployment = Yaml::parseFile(base_path('../.cpanel.yml'));
         $tasks = $deployment['deployment']['tasks'] ?? [];
-        $this->assertCount(4, $tasks);
-        $this->assertStringContainsString('/bin/mkdir -p /home/lrnzwljz/gmr.nyimuki.com/backend', $tasks[0]);
-        $this->assertSame('/bin/cp -R -f backend/. /home/lrnzwljz/gmr.nyimuki.com/backend/', $tasks[1]);
-        $this->assertSame('/bin/cp -R -f frontend/. /home/lrnzwljz/gmr.nyimuki.com/frontend/', $tasks[2]);
-        $this->assertSame('/bin/bash ./backend/deploy/cpanel-deploy.sh --files-already-copied', $tasks[3]);
+        $this->assertSame(['/bin/bash ./backend/deploy/cpanel-deploy.sh'], $tasks);
         $script = file_get_contents(base_path('deploy/cpanel-deploy.sh'));
         $guide = file_get_contents(base_path('deploy/CPANEL-ENV.md'));
 
-        $this->assertStringContainsString('FILES_ALREADY_COPIED="${1:-}"', $script);
+        $this->assertStringContainsString('exec >>"$LOG_FILE" 2>&1', $script);
+        $this->assertStringContainsString('tar -C "$REPO_ROOT/backend"', $script);
+        $this->assertStringNotContainsString('rsync', $script);
+        $this->assertStringContainsString('releases/download/nuxt-$REVISION', $script);
+        $this->assertStringContainsString('sha256sum -c nuxt.tar.gz.sha256', $script);
+        $this->assertStringContainsString('Nuxt build revision does not match HEAD', $script);
+        $this->assertStringContainsString('run ln -s', $script);
+        $this->assertStringContainsString('queue:restart', $script);
+        $this->assertLessThan(strpos($script, "log 'Sync backend"), strpos($script, 'sha256sum -c'));
+        $this->assertLessThan(strpos($script, 'migrate --force'), strpos($script, 'config:clear'));
+        $this->assertLessThan(strpos($script, 'optimize:clear'), strpos($script, 'migrate --force'));
         $this->assertStringContainsString('generate-production-env.php', $script);
         $this->assertStringContainsString("--exclude='*.md'", $script);
         $this->assertStringContainsString("--exclude='.env*'", $script);
         $this->assertStringContainsString('migrate --force', $script);
         $this->assertStringContainsString('.initial-content-seeded', $script);
         $this->assertStringContainsString('db:seed --force', $script);
-        $this->assertStringContainsString('run npm --prefix', $script);
+        $this->assertStringNotContainsString('run npm', $script);
         $this->assertStringContainsString('gmr-deploy.log', $script);
         $this->assertStringContainsString('trap fail ERR', $script);
-        $this->assertStringContainsString("-type f -name '*.md' -delete", $script);
+        $this->assertStringContainsString('! -path "$DEPLOYPATH/backend/vendor/*" -delete', $script);
+        $this->assertStringContainsString('! -path "$DEPLOYPATH/frontend/.output/*" -delete', $script);
         $this->assertStringContainsString('database/database.sqlite', $script);
         $this->assertStringNotContainsString('rm -f "$DEPLOYPATH/backend/.env"', $script);
         $this->assertStringContainsString('no SSH required', $guide);
         $this->assertStringContainsString('File Manager', $guide);
+    }
+
+    public function test_nuxt_release_builds_both_branches_and_packages_a_verified_revision(): void
+    {
+        $workflow = Yaml::parseFile(base_path('../.github/workflows/nuxt-release.yml'));
+        $this->assertSame(['main', 'auth'], $workflow['on']['push']['branches']);
+        $this->assertSame('write', $workflow['permissions']['contents']);
+        $this->assertSame('ubuntu-latest', $workflow['jobs']['build']['runs-on']);
+        $steps = $workflow['jobs']['build']['steps'];
+        $this->assertSame(22, $steps[1]['with']['node-version']);
+        $this->assertSame('node-server', $steps[3]['env']['NITRO_PRESET']);
+        $publish = $steps[4]['run'];
+        $this->assertStringContainsString('> frontend/.output/revision', $publish);
+        $this->assertStringContainsString('sha256sum nuxt.tar.gz', $publish);
+        $this->assertStringContainsString('tag="nuxt-$GITHUB_SHA"', $publish);
+        $this->assertStringContainsString('gh release upload', $publish);
     }
 
     public function test_it_preserves_configured_resend_and_google_only_in_the_backend_env(): void

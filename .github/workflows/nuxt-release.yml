@@ -1,0 +1,46 @@
+name: Build Nuxt deployment
+
+on:
+  push:
+    branches: [main, auth]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nuxt-release-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --include=dev
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          NITRO_PRESET: node-server
+      - name: Package and publish commit-matched output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -f frontend/.output/server/index.mjs
+          printf '%s\n' "$GITHUB_SHA" > frontend/.output/revision
+          tar -C frontend/.output -czf nuxt.tar.gz .
+          sha256sum nuxt.tar.gz > nuxt.tar.gz.sha256
+          tag="nuxt-$GITHUB_SHA"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" \
+              --title "Nuxt $GITHUB_SHA" --notes "Linux Node 22 build for cPanel deployment." \
+              --prerelease --latest=false
+          fi
+          gh release upload "$tag" nuxt.tar.gz nuxt.tar.gz.sha256 --clobber
