@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { dashboardNav } from '~/config/dashboard-nav'
+import { authErrorMessage } from '~/services/auth'
 
 const route = useRoute()
 const pending = ref(false)
-const { data: profile } = await useFetch<{ data: { name: string; email: string; role: string } }>('/api/auth/me', { key: 'dashboard-user', server: false })
+const auth = useAuthStore()
+const signOutError = ref('')
+onMounted(async () => {
+  try { await auth.initialize() }
+  catch (error: unknown) { signOutError.value = authErrorMessage(error, 'Unable to load your session.') }
+})
 const { data: siteSettings } = await useFetch<{ data: { site_name?: string; logo?: string } }>('/api/public/settings', { key: 'dashboard-site-brand' })
-const currentUser = computed(() => profile.value?.data)
+const currentUser = computed(() => auth.user)
 const siteBrand = computed(() => siteSettings.value?.data)
 const activeRail = computed(() => {
   const requestedRail = String(route.query.rail || '')
@@ -23,8 +29,12 @@ const pageTitle = computed(() => {
 
 async function signOut() {
   pending.value = true
-  try { await $fetch('/api/auth/logout', { method: 'POST' }) } catch { /* The server proxy clears the cookie on every outcome. */ }
-  await navigateTo('/dashboard/login')
+  try {
+    await auth.logout()
+    await navigateTo('/dashboard/login')
+  } catch (error: unknown) {
+    signOutError.value = authErrorMessage(error, 'Unable to revoke your session. Please try again.')
+  } finally { pending.value = false }
 }
 </script>
 
@@ -80,7 +90,7 @@ async function signOut() {
           >{{ tab.label }}</NuxtLink>
         </nav>
       </header>
-      <main class="mx-auto w-full max-w-[1440px] p-4 sm:p-7 lg:p-9"><slot /></main>
+      <main class="mx-auto w-full max-w-[1440px] p-4 sm:p-7 lg:p-9"><Alert v-if="signOutError" variant="error" :message="signOutError" /><slot /></main>
     </div>
   </div>
 </template>

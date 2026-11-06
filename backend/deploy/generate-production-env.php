@@ -55,7 +55,28 @@ $appKey = null;
 if (is_file($target) && preg_match('/^APP_KEY=(.*)$/m', (string) file_get_contents($target), $matches) === 1) {
     $appKey = trim($matches[1], " \t\"'");
 }
-$appKey = $appKey ?: 'base64:' . base64_encode(random_bytes(32));
+$appKey = $appKey ?: 'base64:'.base64_encode(random_bytes(32));
+
+$mailer = getenv('MAIL_MAILER') ?: 'log';
+$resendKey = getenv('RESEND_API_KEY') ?: '';
+$fromAddress = getenv('MAIL_FROM_ADDRESS') ?: 'hello@example.com';
+if (! in_array($mailer, ['log', 'resend', 'smtp'], true)) {
+    fwrite(STDERR, "MAIL_MAILER must be log, resend, or smtp.\n");
+    exit(1);
+}
+if ($mailer === 'resend' && ($resendKey === '' || filter_var($fromAddress, FILTER_VALIDATE_EMAIL) === false || str_ends_with($fromAddress, '@example.com'))) {
+    fwrite(STDERR, "Resend requires RESEND_API_KEY and a real MAIL_FROM_ADDRESS on a verified sending domain.\n");
+    exit(1);
+}
+$googleId = getenv('GOOGLE_CLIENT_ID') ?: '';
+$googleSecret = getenv('GOOGLE_CLIENT_SECRET') ?: '';
+$googleRedirect = getenv('GOOGLE_REDIRECT_URI') ?: '';
+if ($googleId !== '' || $googleSecret !== '' || $googleRedirect !== '') {
+    if ($googleId === '' || $googleSecret === '' || $googleRedirect !== rtrim($settings['APP_URL'], '/').'/auth/google/callback') {
+        fwrite(STDERR, "Google requires client ID, client secret, and GOOGLE_REDIRECT_URI matching APP_URL/auth/google/callback.\n");
+        exit(1);
+    }
+}
 
 $values = [
     'APP_NAME' => getenv('APP_NAME') ?: 'Green Minimal Realty',
@@ -64,6 +85,7 @@ $values = [
     'APP_DEBUG' => 'false',
     'APP_URL' => $settings['APP_URL'],
     'FRONTEND_URL' => $settings['FRONTEND_URL'],
+    'TRUSTED_PROXIES' => getenv('TRUSTED_PROXIES') ?: '',
     'APP_LOCALE' => 'en',
     'APP_FALLBACK_LOCALE' => 'en',
     'BCRYPT_ROUNDS' => '12',
@@ -83,7 +105,18 @@ $values = [
     'CACHE_STORE' => 'database',
     'QUEUE_CONNECTION' => 'database',
     'FILESYSTEM_DISK' => 'public',
-    'MAIL_MAILER' => 'log',
+    'MAIL_MAILER' => $mailer,
+    'RESEND_API_KEY' => $resendKey,
+    'MAIL_FROM_ADDRESS' => $fromAddress,
+    'MAIL_FROM_NAME' => getenv('MAIL_FROM_NAME') ?: (getenv('APP_NAME') ?: 'Green Minimal Realty'),
+    'MAIL_HOST' => getenv('MAIL_HOST') ?: '127.0.0.1',
+    'MAIL_PORT' => getenv('MAIL_PORT') ?: '587',
+    'MAIL_SCHEME' => getenv('MAIL_SCHEME') ?: '',
+    'MAIL_USERNAME' => getenv('MAIL_USERNAME') ?: '',
+    'MAIL_PASSWORD' => getenv('MAIL_PASSWORD') ?: '',
+    'GOOGLE_CLIENT_ID' => $googleId,
+    'GOOGLE_CLIENT_SECRET' => $googleSecret,
+    'GOOGLE_REDIRECT_URI' => $googleRedirect,
     'LOG_CHANNEL' => 'stack',
     'LOG_LEVEL' => 'warning',
     'SEED_ADMIN' => $seedAdmin ? 'true' : 'false',
@@ -95,8 +128,10 @@ $values = [
 
 $nuxtValues = [
     'NUXT_LARAVEL_API_URL' => $settings['APP_URL'],
+    'NUXT_FRONTEND_URL' => $settings['FRONTEND_URL'],
     'NUXT_SESSION_COOKIE_SECURE' => 'true',
     'NUXT_SESSION_COOKIE_NAME' => getenv('NUXT_SESSION_COOKIE_NAME') ?: 'gmr_session',
+    'NUXT_TRUSTED_PROXY_IPS' => getenv('NUXT_TRUSTED_PROXY_IPS') ?: '',
 ];
 
 foreach ([$target => $values, $nuxtTarget => $nuxtValues] as $path => $fileValues) {
@@ -107,7 +142,7 @@ foreach ([$target => $values, $nuxtTarget => $nuxtValues] as $path => $fileValue
             exit(1);
         }
         $escaped = strtr($value, ['\\' => '\\\\', '"' => '\\"', '$' => '\\$']);
-        $lines[] = $name . '="' . $escaped . '"';
+        $lines[] = $name.'="'.$escaped.'"';
     }
 
     $directory = dirname($path);
@@ -116,8 +151,8 @@ foreach ([$target => $values, $nuxtTarget => $nuxtValues] as $path => $fileValue
         exit(1);
     }
 
-    $tempPath = $path . '.tmp';
-    if (file_put_contents($tempPath, implode("\n", $lines) . "\n", LOCK_EX) === false) {
+    $tempPath = $path.'.tmp';
+    if (file_put_contents($tempPath, implode("\n", $lines)."\n", LOCK_EX) === false) {
         fwrite(STDERR, "Unable to write generated environment file.\n");
         exit(1);
     }

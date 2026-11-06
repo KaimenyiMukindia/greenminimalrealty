@@ -21,6 +21,12 @@ return [
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+        'guzzle' => ['connect_timeout' => 5, 'timeout' => 15],
+    ],
 
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),

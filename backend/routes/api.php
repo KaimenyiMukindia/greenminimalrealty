@@ -1,18 +1,20 @@
 <?php
 
-use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
+use App\Http\Controllers\Api\V1\AdminContentController;
+use App\Http\Controllers\Api\V1\AdminMenuController;
+use App\Http\Controllers\Api\V1\AdminUsersController;
 use App\Http\Controllers\Api\V1\Auth\AccountController;
+use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
+use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
+use App\Http\Controllers\Api\V1\Auth\GoogleAuthController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\RegisterController;
 use App\Http\Controllers\Api\V1\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\PublicContactController;
 use App\Http\Controllers\Api\V1\PublicContentController;
-use App\Http\Controllers\Api\V1\AdminContentController;
-use App\Http\Controllers\Api\V1\AdminMenuController;
-use App\Http\Controllers\Api\V1\AdminUsersController;
-use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Middleware\EnsureActiveToken;
 use Illuminate\Support\Facades\Route;
 
@@ -21,10 +23,16 @@ Route::prefix('v1/auth')->name('api.v1.auth.')->group(function (): void {
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:6,1')->name('login');
     Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:3,1')->name('forgot-password');
     Route::post('/reset-password', [ResetPasswordController::class, 'store'])->middleware('throttle:6,1')->name('reset-password');
+    Route::post('/google/exchange', [GoogleAuthController::class, 'store'])->middleware('throttle:6,1')->name('google.exchange');
+    Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+        ->whereNumber('id')->where('hash', '[a-f0-9]{40}')->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
     Route::middleware([EnsureActiveToken::class, 'auth:sanctum'])->group(function (): void {
         Route::get('/me', [MeController::class, 'show'])->name('me');
+        Route::get('/dashboard', [MeController::class, 'show'])->middleware('verified')->name('dashboard');
         Route::patch('/me', [AccountController::class, 'updateProfile'])->name('me.update');
         Route::put('/me/password', [AccountController::class, 'updatePassword'])->name('me.password');
+        Route::delete('/me', [AccountController::class, 'destroy'])->middleware('throttle:3,1')->name('me.destroy');
+        Route::post('/email/verification-notification', [EmailVerificationController::class, 'store'])->middleware('throttle:3,1')->name('verification.send');
         Route::post('/logout', [LogoutController::class, 'destroy'])->name('logout');
         Route::post('/logout-all', [LogoutController::class, 'destroyAll'])->name('logout-all');
     });
@@ -48,7 +56,7 @@ Route::prefix('v1/public')->name('api.v1.public.')->group(function (): void {
     Route::post('/contact', [PublicContactController::class, 'store'])->middleware('throttle:6,1')->name('contact');
 });
 
-Route::prefix('v1/admin')->name('api.v1.admin.')->middleware(['auth:sanctum', 'can:view-content'])->group(function (): void {
+Route::prefix('v1/admin')->name('api.v1.admin.')->middleware([EnsureActiveToken::class, 'auth:sanctum', 'verified', 'can:view-content'])->group(function (): void {
     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
     Route::post('/media', [MediaController::class, 'store'])->name('media.store');
     Route::delete('/media/{media}', [MediaController::class, 'destroy'])->name('media.destroy');

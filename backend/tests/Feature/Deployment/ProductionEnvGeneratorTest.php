@@ -12,10 +12,10 @@ class ProductionEnvGeneratorTest extends TestCase
 {
     public function test_it_generates_a_secure_production_env_and_retains_the_app_key_on_regeneration(): void
     {
-        $directory = sys_get_temp_dir() . '/gmr-env-' . Str::uuid();
+        $directory = sys_get_temp_dir().'/gmr-env-'.Str::uuid();
         mkdir($directory, 0700, true);
-        $target = $directory . '/backend.env';
-        $nuxtTarget = $directory . '/frontend.env';
+        $target = $directory.'/backend.env';
+        $nuxtTarget = $directory.'/frontend.env';
         $environment = array_replace($this->deploymentEnvironment(), ['DB_PASSWORD' => 'fake$pass#with"quotes']);
 
         try {
@@ -32,7 +32,9 @@ class ProductionEnvGeneratorTest extends TestCase
             $this->assertSame('https://api.example.test', $nuxt['NUXT_LARAVEL_API_URL']);
             $this->assertSame('true', $nuxt['NUXT_SESSION_COOKIE_SECURE']);
             $this->assertSame('gmr_session', $nuxt['NUXT_SESSION_COOKIE_NAME']);
-            if (PHP_OS_FAMILY !== 'Windows') $this->assertSame(0600, fileperms($target) & 0777);
+            if (PHP_OS_FAMILY !== 'Windows') {
+                $this->assertSame(0600, fileperms($target) & 0777);
+            }
             $originalKey = $generated['APP_KEY'];
 
             $second = new Process([PHP_BINARY, base_path('deploy/generate-production-env.php'), $target, $nuxtTarget], base_path(), array_replace($environment, ['APP_NAME' => 'Updated Deployment Name']));
@@ -42,18 +44,24 @@ class ProductionEnvGeneratorTest extends TestCase
             $this->assertSame($originalKey, $regenerated['APP_KEY']);
             $this->assertSame('Updated Deployment Name', $regenerated['APP_NAME']);
         } finally {
-            if (is_file($target)) unlink($target);
-            if (is_file($nuxtTarget)) unlink($nuxtTarget);
-            if (is_dir($directory)) rmdir($directory);
+            if (is_file($target)) {
+                unlink($target);
+            }
+            if (is_file($nuxtTarget)) {
+                unlink($nuxtTarget);
+            }
+            if (is_dir($directory)) {
+                rmdir($directory);
+            }
         }
     }
 
     public function test_it_refuses_to_generate_env_without_required_values_or_valid_production_urls(): void
     {
-        $directory = sys_get_temp_dir() . '/gmr-env-' . Str::uuid();
+        $directory = sys_get_temp_dir().'/gmr-env-'.Str::uuid();
         mkdir($directory, 0700, true);
-        $target = $directory . '/backend.env';
-        $nuxtTarget = $directory . '/frontend.env';
+        $target = $directory.'/backend.env';
+        $nuxtTarget = $directory.'/frontend.env';
 
         try {
             $missingValues = $this->deploymentEnvironment();
@@ -72,9 +80,15 @@ class ProductionEnvGeneratorTest extends TestCase
             $this->assertSame(1, $insecureUrl->getExitCode());
             $this->assertFileDoesNotExist($target);
         } finally {
-            if (is_file($target)) unlink($target);
-            if (is_file($nuxtTarget)) unlink($nuxtTarget);
-            if (is_dir($directory)) rmdir($directory);
+            if (is_file($target)) {
+                unlink($target);
+            }
+            if (is_file($nuxtTarget)) {
+                unlink($nuxtTarget);
+            }
+            if (is_dir($directory)) {
+                rmdir($directory);
+            }
         }
     }
 
@@ -90,7 +104,7 @@ class ProductionEnvGeneratorTest extends TestCase
         $script = file_get_contents(base_path('deploy/cpanel-deploy.sh'));
         $guide = file_get_contents(base_path('deploy/CPANEL-ENV.md'));
 
-        $this->assertStringContainsString("FILES_ALREADY_COPIED=\"\${1:-}\"", $script);
+        $this->assertStringContainsString('FILES_ALREADY_COPIED="${1:-}"', $script);
         $this->assertStringContainsString('generate-production-env.php', $script);
         $this->assertStringContainsString("--exclude='*.md'", $script);
         $this->assertStringContainsString("--exclude='.env*'", $script);
@@ -105,6 +119,66 @@ class ProductionEnvGeneratorTest extends TestCase
         $this->assertStringNotContainsString('rm -f "$DEPLOYPATH/backend/.env"', $script);
         $this->assertStringContainsString('no SSH required', $guide);
         $this->assertStringContainsString('File Manager', $guide);
+    }
+
+    public function test_it_preserves_configured_resend_and_google_only_in_the_backend_env(): void
+    {
+        $directory = sys_get_temp_dir().'/gmr-env-'.Str::uuid();
+        mkdir($directory, 0700, true);
+        $target = $directory.'/backend.env';
+        $nuxtTarget = $directory.'/frontend.env';
+        try {
+            $environment = array_replace($this->deploymentEnvironment(), [
+                'MAIL_MAILER' => 'resend', 'RESEND_API_KEY' => 'test-resend-key',
+                'MAIL_FROM_ADDRESS' => 'auth@verified.example.test',
+                'GOOGLE_CLIENT_ID' => 'test-client', 'GOOGLE_CLIENT_SECRET' => 'test-google-secret',
+                'GOOGLE_REDIRECT_URI' => 'https://api.example.test/auth/google/callback',
+            ]);
+            (new Process([PHP_BINARY, base_path('deploy/generate-production-env.php'), $target, $nuxtTarget], base_path(), $environment))->mustRun();
+            $generated = Dotenv::parse(file_get_contents($target));
+            $this->assertSame('resend', $generated['MAIL_MAILER']);
+            $this->assertSame('test-resend-key', $generated['RESEND_API_KEY']);
+            $this->assertSame('https://api.example.test/auth/google/callback', $generated['GOOGLE_REDIRECT_URI']);
+            $nuxt = file_get_contents($nuxtTarget);
+            $this->assertStringNotContainsString('test-resend-key', $nuxt);
+            $this->assertStringNotContainsString('test-google-secret', $nuxt);
+        } finally {
+            if (is_file($target)) {
+                unlink($target);
+            }
+            if (is_file($nuxtTarget)) {
+                unlink($nuxtTarget);
+            }
+            rmdir($directory);
+        }
+    }
+
+    public function test_it_rejects_incomplete_resend_and_google_configuration_before_writing_env(): void
+    {
+        $directory = sys_get_temp_dir().'/gmr-env-'.Str::uuid();
+        mkdir($directory, 0700, true);
+        $target = $directory.'/backend.env';
+        $nuxtTarget = $directory.'/frontend.env';
+        try {
+            foreach ([
+                ['MAIL_MAILER' => 'resend'],
+                ['GOOGLE_CLIENT_ID' => 'test-client'],
+                ['GOOGLE_CLIENT_ID' => 'test-client', 'GOOGLE_CLIENT_SECRET' => 'test-secret', 'GOOGLE_REDIRECT_URI' => 'http://wrong.test/callback'],
+            ] as $invalid) {
+                $process = new Process([PHP_BINARY, base_path('deploy/generate-production-env.php'), $target, $nuxtTarget], base_path(), array_replace($this->deploymentEnvironment(), $invalid));
+                $process->run();
+                $this->assertSame(1, $process->getExitCode());
+                $this->assertFileDoesNotExist($target);
+            }
+        } finally {
+            if (is_file($target)) {
+                unlink($target);
+            }
+            if (is_file($nuxtTarget)) {
+                unlink($nuxtTarget);
+            }
+            rmdir($directory);
+        }
     }
 
     /** @return array<string, string> */
@@ -122,6 +196,11 @@ class ProductionEnvGeneratorTest extends TestCase
             'DB_USERNAME' => 'gmr_test',
             'DB_PASSWORD' => 'fake-database-password',
             'SEED_ADMIN' => 'false',
+            'MAIL_MAILER' => 'log',
+            'RESEND_API_KEY' => '',
+            'GOOGLE_CLIENT_ID' => '',
+            'GOOGLE_CLIENT_SECRET' => '',
+            'GOOGLE_REDIRECT_URI' => '',
         ];
     }
 }

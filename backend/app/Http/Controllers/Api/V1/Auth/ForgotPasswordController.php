@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers\Api\V1\Auth;
 
-use App\Actions\Auth\RecordUnavailablePasswordRecovery;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Auth\ForgotPasswordRequest;
 use App\Http\Resources\StatusResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Password;
 
 class ForgotPasswordController extends Controller
 {
-    public function store(ForgotPasswordRequest $request, RecordUnavailablePasswordRecovery $action): JsonResponse
+    public function store(ForgotPasswordRequest $request): JsonResponse
     {
-        $action->handle($request);
+        Password::sendResetLink($request->validated());
 
         return (new StatusResource([
-            'message' => 'Password recovery is temporarily unavailable while outbound email is disabled.',
-            'code' => 'password_reset_unavailable',
-        ]))->response()->setStatusCode(503);
+            'message' => 'If an account exists for this email, a password reset link has been sent.',
+            'code' => 'password_reset_requested',
+        ]))->response();
     }
 }

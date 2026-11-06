@@ -4,12 +4,13 @@ namespace Tests\Feature\Api\V1;
 
 use App\Enums\UserRole;
 use App\Models\Media;
-use App\Models\Menu;
+use App\Models\MenuItem;
 use App\Models\Property;
 use App\Models\Stat;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class AdminDashboardWriteTest extends TestCase
@@ -104,8 +105,8 @@ class AdminDashboardWriteTest extends TestCase
             ],
         ])->assertCreated()->assertJsonPath('data.items.0.children.0.label', 'Coastal homes');
 
-        $root = \App\Models\MenuItem::where('label', 'Explore')->firstOrFail();
-        $child = \App\Models\MenuItem::where('label', 'Coastal homes')->firstOrFail();
+        $root = MenuItem::where('label', 'Explore')->firstOrFail();
+        $child = MenuItem::where('label', 'Coastal homes')->firstOrFail();
         $this->assertSame($root->id, $child->parent_id);
     }
 
@@ -125,7 +126,7 @@ class AdminDashboardWriteTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.label', 'Occupancy');
 
-        $this->withToken($token)->patchJson('/api/v1/admin/airbnb-listings/' . $response->json('data.id'), ['published' => false])->assertOk();
+        $this->withToken($token)->patchJson('/api/v1/admin/airbnb-listings/'.$response->json('data.id'), ['published' => false])->assertOk();
         $this->getJson('/api/v1/public/airbnb-listings')->assertOk()->assertJsonCount(0, 'data');
     }
 
@@ -144,7 +145,8 @@ class AdminDashboardWriteTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::Editor, 'password' => 'password']);
         $token = $user->createToken('account-test')->plainTextToken;
 
-        $this->withToken($token)->patchJson('/api/v1/auth/me', ['name' => 'Updated Person', 'email' => 'updated@example.test'])
+        Mail::fake();
+        $this->withToken($token)->patchJson('/api/v1/auth/me', ['name' => 'Updated Person', 'email' => 'updated@example.test', 'current_password' => 'password'])
             ->assertOk()->assertJsonPath('data.name', 'Updated Person')->assertJsonMissingPath('data.access_token');
         $this->withToken($token)->putJson('/api/v1/auth/me/password', [
             'current_password' => 'password',
@@ -164,8 +166,8 @@ class AdminDashboardWriteTest extends TestCase
 
         $this->withToken($token)->getJson('/api/v1/admin/users?role=editor&search=Filtered')
             ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $editor->id);
-        $this->withToken($token)->patchJson('/api/v1/admin/users/' . $admin->id, ['role' => 'editor'])->assertUnprocessable();
-        $this->withToken($token)->deleteJson('/api/v1/admin/users/' . $admin->id)->assertUnprocessable();
+        $this->withToken($token)->patchJson('/api/v1/admin/users/'.$admin->id, ['role' => 'editor'])->assertUnprocessable();
+        $this->withToken($token)->deleteJson('/api/v1/admin/users/'.$admin->id)->assertUnprocessable();
 
         $ordinaryUser = User::factory()->create(['role' => UserRole::User]);
         $this->actingAs($ordinaryUser, 'sanctum')->getJson('/api/v1/admin/users')->assertForbidden();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,10 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role->value,
+            'email_verified_at' => $this->email_verified_at?->toIso8601String(),
+            'has_password' => $this->password_set,
+            'dashboard_path' => in_array($this->role, [UserRole::Admin, UserRole::Editor], true)
+                ? '/dashboard/properties' : '/dashboard/account',
         ];
     }
 }

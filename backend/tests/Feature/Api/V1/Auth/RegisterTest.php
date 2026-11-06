@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Api\V1\Auth;
 
-use App\Models\AuditLog;
+use App\Mail\Auth\AuthLinkMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -12,7 +12,7 @@ class RegisterTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_user_can_register_without_email_delivery(): void
+    public function test_a_user_can_register_and_receive_a_verification_email(): void
     {
         Mail::fake();
 
@@ -26,6 +26,7 @@ class RegisterTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('data.user.email', 'casey@example.test')
             ->assertJsonPath('data.user.role', 'user')
+            ->assertJsonPath('data.user.has_password', true)
             ->assertJsonMissingPath('data.access_token');
         $this->assertDatabaseHas('users', ['email' => 'casey@example.test']);
         $this->assertDatabaseHas('audit_logs', ['action' => 'auth.registered']);
@@ -34,7 +35,7 @@ class RegisterTest extends TestCase
             'email' => 'casey@example.test',
             'password' => 'SecurePass9!',
         ])->assertOk()->assertJsonPath('data.user.email', 'casey@example.test');
-        Mail::assertNothingOutgoing();
+        Mail::assertQueued(AuthLinkMail::class, fn (AuthLinkMail $mail): bool => $mail->hasTo('casey@example.test') && $mail->actionLabel === 'Verify email');
     }
 
     public function test_registration_validates_password_and_unique_email(): void

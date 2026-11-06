@@ -14,7 +14,7 @@ class RegisterController extends Controller
     {
         return (new AuthResource([
             'user' => $action->handle($request),
-            'message' => 'Account created. You can sign in now.',
+            'message' => 'Account created. Check your email to verify your address.',
         ]))->response()->setStatusCode(201);
     }
 }

@@ -1,8 +1,7 @@
-export default defineNuxtRouteMiddleware((to) => {
-  const guestPages = ['/dashboard/login', '/dashboard/register', '/dashboard/forgot-password', '/dashboard/reset-password']
+export default defineNuxtRouteMiddleware(async (to) => {
+  const guestPages = ['/dashboard/login', '/dashboard/register']
   if (!guestPages.includes(to.path)) return
 
-  const config = useRuntimeConfig()
-  const token = useCookie<string | null>(config.public.sessionCookieName as string)
-  if (token.value) return navigateTo('/dashboard')
+  const session = await useRequestFetch()<{ present: boolean }>('/api/auth/session')
+  if (session.present) return navigateTo('/dashboard')
 })

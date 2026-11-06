@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import { FetchError } from 'ofetch'
 
 export async function laravelRequest<T>(event: H3Event, path: string, options: Record<string, unknown> = {}): Promise<T> {
   return requestLaravel<T>(event, `/auth${path}`, options)
@@ -17,22 +18,39 @@ async function requestLaravel<T>(event: H3Event, path: string, options: Record<s
   const token = getCookie(event, config.public.sessionCookieName)
   const headers = new Headers(options.headers as HeadersInit | undefined)
   headers.set('Accept', 'application/json')
+  const userAgent = getHeader(event, 'user-agent')
+  if (userAgent) headers.set('User-Agent', userAgent)
+  const trustedProxies = config.trustedProxyIps.split(',').map(ip => ip.trim()).filter(Boolean)
+  let clientIp = getRequestIP(event)
+  const forwarded = (getHeader(event, 'x-forwarded-for') || '').split(',').map(ip => ip.trim()).filter(Boolean)
+  while (clientIp && trustedProxies.includes(clientIp) && forwarded.length) {
+    clientIp = forwarded.pop()
+  }
+  if (clientIp) headers.set('X-Forwarded-For', clientIp)
   if (!(options.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   try {
-    return await $fetch<T>(`${config.laravelApiUrl.replace(/\/$/, '')}/api/v1${path}`, {
+    const response = await $fetch.raw<T>(`${config.laravelApiUrl.replace(/\/$/, '')}/api/v1${path}`, {
       ...options,
       headers,
+      timeout: 15000,
     })
-  } catch (error: any) {
-    const response = error?.response
-    const status = response?.status ?? error?.statusCode ?? 502
-    const data = response?._data ?? error?.data ?? { message: 'The Laravel API is unavailable.', code: 'api_unavailable' }
+    if (!response.headers.get('content-type')?.includes('application/json') || response._data === undefined) {
+      console.error('Laravel returned an invalid API response.', { endpoint: path.split('?')[0], status: response.status })
+      throw createError({ statusCode: 502, message: 'The Laravel API returned an invalid response.' })
+    }
+    return response._data
+  } catch (error: unknown) {
+    if (!(error instanceof FetchError)) throw error
+    const status = error.response?.status ?? 502
+    const errorData: unknown = error.response?._data ?? error.data
+    const data = errorData && typeof errorData === 'object' ? errorData : { message: 'The Laravel API is unavailable.', code: 'api_unavailable' }
     if (status === 401 && token) {
       deleteCookie(event, config.public.sessionCookieName, { httpOnly: true, secure: config.sessionCookieSecure, sameSite: 'lax', path: '/' })
     }
-    throw createError({ statusCode: status, statusMessage: data.message ?? 'Authentication request failed.', data })
+    if (status >= 500) console.error('Laravel API request failed.', { endpoint: path.split('?')[0], status })
+    throw createError({ statusCode: status, statusMessage: 'message' in data && typeof data.message === 'string' ? data.message : 'Authentication request failed.', data })
   }
 }
 

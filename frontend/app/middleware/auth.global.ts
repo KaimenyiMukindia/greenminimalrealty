@@ -1,33 +1,30 @@
-const guestPages = new Set([
+const publicAuthPages = new Set([
   '/dashboard/login',
   '/dashboard/register',
   '/dashboard/forgot-password',
   '/dashboard/reset-password',
+  '/dashboard/verify-email',
+  '/dashboard/oauth/callback',
 ])
 
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   if (!to.path.startsWith('/dashboard')) return
-
-  const config = useRuntimeConfig()
-  const isGuestPage = guestPages.has(to.path)
-  const token = useCookie<string | null>(config.public.sessionCookieName as string)
-  const present = import.meta.server
-    ? Boolean(token.value)
-    : undefined
-
-  return resolveSession(present, isGuestPage, to.path)
+  const auth = useAuthStore()
+  const fetcher = useRequestFetch()
+  const session = await fetcher<{ present: boolean }>('/api/auth/session')
+  if (!publicAuthPages.has(to.path) && !session.present) {
+    auth.clear()
+    return navigateTo({ path: '/dashboard/login', query: { redirect: to.fullPath } })
+  }
+  if (!publicAuthPages.has(to.path) && session.present && import.meta.client) {
+    try {
+      await fetcher('/api/auth/dashboard')
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'statusCode' in error) {
+        if (error.statusCode === 401) return navigateTo('/dashboard/login')
+        if (error.statusCode === 403) return navigateTo('/dashboard/verify-email')
+      }
+      throw error
+    }
+  }
 })
-
-async function resolveSession(serverPresence: boolean | undefined, isGuestPage: boolean, path: string) {
-  const session = serverPresence === undefined
-    ? await $fetch<{ present: boolean }>('/api/auth/session').catch(() => ({ present: false }))
-    : { present: serverPresence }
-
-  if (!isGuestPage && !session.present) {
-    return navigateTo('/dashboard/login')
-  }
-
-  if (isGuestPage && session.present) {
-    return navigateTo('/dashboard')
-  }
-}

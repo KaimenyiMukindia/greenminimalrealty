@@ -9,6 +9,20 @@
 
 ## About Laravel
 
+### Project authentication
+
+This is the existing Laravel API backend, not a second auth application. Authentication remains bearer-only Sanctum under `/api/v1/auth`; Google uses Laravel session state only for its browser OAuth handshake. See [API routes](routes/api.php), [AuthenticationService](app/Services/AuthenticationService.php), and [auth actions](app/Actions/Auth).
+
+- Public: `POST register`, `login`, `forgot-password`, `reset-password`, `google/exchange`; signed `GET email/verify/{id}/{hash}`.
+- Authenticated: `GET/PATCH/DELETE me`, `PUT me/password`, `POST logout`, `logout-all`, `email/verification-notification`.
+- Verified bearer session: `GET dashboard` and all existing `/api/v1/admin/*` routes. Account/verification/logout operations remain available before verification.
+- Google browser navigation: `GET /auth/google`, `GET /auth/google/callback`. Google access tokens are never persisted or returned to Nuxt; only a 60-second, browser-bound, hashed-at-rest exchange code is redirected.
+- Logout removes the current token. Logout-all, reset, and deletion revoke every token and pending Google exchange; reset tokens are hashed, configured-expiry, and consumed on success. Deletion anonymizes and soft-deletes the account consistent with the existing schema, and protects the last administrator.
+
+Verification and reset emails use queued Laravel Markdown mailables through the official Resend transport. Google/Resend keys are intentionally empty in `.env.example`. `MAIL_MAILER=log` is local/setup-only; configure a verified Resend sender and a queue worker before public release. The [deployment guide](deploy/CPANEL-ENV.md) covers cPanel, ngrok, secure cookies, trusted proxies, config caching, and environment setup.
+
+Run `php artisan migrate --no-interaction`, then `php artisan test tests/Feature/Api/V1/Auth tests/Feature/Deployment/ProductionEnvGeneratorTest.php`. [AuthFlowTest](tests/Feature/Api/V1/Auth/AuthFlowTest.php) extends the existing auth tests with Google state/callback/exchange, verification, reset expiry/revocation, profile reverification, and deletion cases. Full-suite verification is recorded in [MASTER.md](../MASTER.md).
+
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
 - [Simple, fast routing engine](https://laravel.com/docs/routing).
